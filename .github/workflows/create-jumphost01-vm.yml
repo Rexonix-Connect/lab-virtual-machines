@@ -62,7 +62,7 @@ jobs:
         run: |
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
-          tofu apply -auto-approve "tfplan" -state "${{ env.VM_NAME }}/terraform.tfstate"
+          tofu apply -auto-approve -state "${{ env.VM_NAME }}/terraform.tfstate" "tfplan"
         env:
           TF_LOG: "ERROR"
           # vCenter
