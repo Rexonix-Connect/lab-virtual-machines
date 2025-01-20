@@ -75,7 +75,6 @@ jobs:
           echo "TFPLAN<<EOF" >> $GITHUB_OUTPUT
           echo "$(cat tfplan.log)" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
         env:
           TF_LOG: "ERROR"
           # vCenter
@@ -106,6 +105,10 @@ jobs:
 
       - name: Workaround for git
         run: git config --global --add safe.directory '*'
+
+      - name: debug tfplan
+        run: |
+          echo "TFPLAN: ${{ steps.create-vm.outputs.TFPLAN }}"
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'No changes. Your infrastructure matches the configuration.') }}
