@@ -1,0 +1,10 @@
+{
+  "archives": {
+    "linux_amd64": {
+      "hashes": [
+        "h1:NLKorypZTjNhfDCCma6QAWOJfDejQ1tMDS0XyryPjvQ="
+      ],
+      "url": "terraform-provider-vsphere_2.2.0_linux_amd64.zip"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "archives": {
+    "linux_amd64": {
+      "hashes": [
+        "h1:EJoUGDo7L52Iu22cA1KCndJ9B1Rrfd75wyZzsScEnc0="
+      ],
+      "url": "terraform-provider-tls_4.0.6_linux_amd64.zip"
+    }
+  }
+}
