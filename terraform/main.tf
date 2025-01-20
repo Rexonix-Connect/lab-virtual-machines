@@ -1,0 +1,93 @@
+terraform {
+  required_version = ">= 1.3.0"
+
+  required_providers {
+    vsphere = {
+      source  = "hashicorp/vsphere"
+      version = "~> 2.2.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0.5"
+    }
+  }
+
+  encryption {
+    key_provider "pbkdf2" "mykey" {
+      passphrase = "$TF_ENCRYPTION_KEY"
+    }
+
+    method "aes_gcm" "new_method" {
+      keys = key_provider.pbkdf2.mykey
+    }
+
+    state {
+      method = method.aes_gcm.new_method
+      enforced = true
+    }
+  }
+}
+
+locals {
+  templatevars = {
+    name         = var.vm_name
+    ipv4_address = var.vm_ip[0]
+    ipv4_netmask = var.vm_netmask
+    ipv4_gateway = var.vm_gateway
+    domain       = var.vm_domain
+    dns_servers  = jsonencode(var.dns_server_list)
+    public_keys  = jsonencode(concat(var.authorized_ssh_keys, [tls_private_key.temp_ssh_keypair.public_key_openssh]))
+    ssh_username = var.vm_username
+    ssh_password = var.vm_password
+  }
+}
+
+resource "tls_private_key" "temp_ssh_keypair" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "vsphere_virtual_machine" "virtual_machine" {
+  name             = var.vm_name
+  datastore_id     = data.vsphere_datastore.datastore.id
+  resource_pool_id = data.vsphere_compute_cluster.cluster[0].resource_pool_id
+  num_cpus         = 2
+  memory           = 4096
+  folder           = "/${var.vsphere_datacenter}/vm/${var.vm_folder}"
+  connection {
+    type        = "ssh"
+    host        = self.guest_ip_addresses[0]
+    user        = var.vm_username
+    private_key = tls_private_key.temp_ssh_keypair.private_key_openssh
+  }
+  lifecycle {
+    ignore_changes = [guest_id]
+  }
+  extra_config = {
+    "guestinfo.metadata"          = base64encode(templatefile("${path.module}/templates/metadata.yaml", local.templatevars))
+    "guestinfo.metadata.encoding" = "base64"
+    "guestinfo.userdata"          = base64encode(templatefile("${path.module}/templates/userdata.yaml", local.templatevars))
+    "guestinfo.userdata.encoding" = "base64"
+  }
+  disk {
+    label            = "disk0"
+    size             = "50"
+    thin_provisioned = true
+  }
+  network_interface {
+    network_id = data.vsphere_network.network.id
+  }
+  clone {
+    template_uuid = data.vsphere_content_library_item.item.id
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "sudo userdel vagrant",
+      "sudo rm -r /home/vagrant",
+      "sudo passwd ${var.vm_username} <<EOF",
+      "${var.vm_password}",
+      "${var.vm_password}",
+      "EOF"
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+name: Create jumphost01 VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-opentofu-providers-mirror:
+    runs-on: [self-hosted, linux, initial]
+    container: ghcr.io/opentofu/opentofu:1.9.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create providers mirror
+        run: |
+          echo "[started] Creating mirror"
+          cd terraform
+          rm -rf ./mirror
+          mkdir -p ./mirror
+          tofu providers mirror ./mirror || tofu providers mirror ./mirror
+          echo "[done] Creating mirror"
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          file_pattern: 'terraform/mirror/*'
