@@ -18,6 +18,9 @@ jobs:
           mkdir -p ./mirror
           tofu providers mirror ./mirror || tofu providers mirror ./mirror
           echo "[done] Creating mirror"
+    
+      - name: Workaround for git
+        run: git config --global --add safe.directory '*'
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
