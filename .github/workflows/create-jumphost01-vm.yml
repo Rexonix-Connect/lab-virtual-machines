@@ -70,7 +70,7 @@ jobs:
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
           tofu apply -auto-approve "tfplan" 2>&1 | tee tfapply.log
-          echo "::set-output name=TFAPPLY::$(cat tfapply.log)"
+          echo "TFAPPLY=$(cat tfapply.log)" >> $GITHUB_OUTPUT
         env:
           TF_LOG: "ERROR"
           # vCenter
