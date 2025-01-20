@@ -73,7 +73,7 @@ jobs:
           tofu apply -auto-approve "tfplan"
           # save tfplan to output for later use
           echo "TFPLAN<<EOF" >> $GITHUB_OUTPUT
-          cat tfplan.log >> $GITHUB_OUTPUT
+          echo "$(cat tfplan.log)" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
         env:
