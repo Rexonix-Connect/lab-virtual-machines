@@ -64,20 +64,17 @@ jobs:
             terraform/main.tf
 
       - name: Create VM from template with OpenTofu
+        id: create-vm
         working-directory: terraform
         run: |
-          # backup statefile if present
-          if [ -f "${{ env.VM_NAME }}/terraform.tfstate" ]; then
-            cp "${{ env.VM_NAME }}/terraform.tfstate" "${{ env.VM_NAME }}/terraform.tfstate.bak"
-          fi
           # init, plan, apply
           tofu init --plugin-dir ./mirror
-          tofu plan -out "tfplan"
-          tofu apply -auto-approve "tfplan" 2>&1 | tee tfapply.log
-          # restore statefile if no changes to avoid overwriting
-          if grep -q "No changes. Your infrastructure matches the configuration." tfapply.log; then
-            mv "${{ env.VM_NAME }}/terraform.tfstate.bak" "${{ env.VM_NAME }}/terraform.tfstate"
-          fi
+          tofu plan -out "tfplan" | tee tfplan.log
+          tofu apply -auto-approve "tfplan"
+          # save tfplan to output for later use
+          echo "TFPLAN<<EOF" >> $GITHUB_OUTPUT
+          cat tfplan.log >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
         env:
           TF_LOG: "ERROR"
@@ -111,6 +108,7 @@ jobs:
         run: git config --global --add safe.directory '*'
 
       - uses: stefanzweifel/git-auto-commit-action@v5
+        if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'No changes. Your infrastructure matches the configuration.') }}
         with:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
