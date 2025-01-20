@@ -30,15 +30,15 @@ terraform {
 
 locals {
   templatevars = {
-    name         = var.vm_name
-    ipv4_address = var.vm_ip[0]
-    ipv4_netmask = var.vm_netmask
-    ipv4_gateway = var.vm_gateway
-    domain       = var.vm_domain
-    dns_servers  = jsonencode(var.dns_server_list)
-    public_keys  = jsonencode(concat(var.authorized_ssh_keys, [tls_private_key.temp_ssh_keypair.public_key_openssh]))
-    ssh_username = var.vm_username
-    ssh_password = var.vm_password
+    name         = var.vmName
+    ipv4_address = var.vmIPAddresses[0]
+    ipv4_netmask = var.vmIPNetmask
+    ipv4_gateway = var.vmIPGateway
+    domain       = var.vmDomain
+    dns_servers  = jsonencode(var.dnsServerList)
+    public_keys  = jsonencode(concat(var.authorizedSshKeys, [tls_private_key.temp_ssh_keypair.public_key_openssh]))
+    ssh_username = var.vmUsername
+    ssh_password = var.vmPassword
   }
 }
 
@@ -48,16 +48,16 @@ resource "tls_private_key" "temp_ssh_keypair" {
 }
 
 resource "vsphere_virtual_machine" "virtual_machine" {
-  name             = var.vm_name
+  name             = var.vmName
   datastore_id     = data.vsphere_datastore.datastore.id
   resource_pool_id = data.vsphere_compute_cluster.cluster[0].resource_pool_id
   num_cpus         = 2
   memory           = 4096
-  folder           = "/${var.vsphere_datacenter}/vm/${var.vm_folder}"
+  folder           = "/${var.vCenterDatacenter}/vm/${var.vmFolder}"
   connection {
     type        = "ssh"
     host        = self.guest_ip_addresses[0]
-    user        = var.vm_username
+    user        = var.vmUsername
     private_key = tls_private_key.temp_ssh_keypair.private_key_openssh
   }
   lifecycle {
@@ -84,9 +84,9 @@ resource "vsphere_virtual_machine" "virtual_machine" {
     inline = [
       "sudo userdel vagrant",
       "sudo rm -r /home/vagrant",
-      "sudo passwd ${var.vm_username} <<EOF",
-      "${var.vm_password}",
-      "${var.vm_password}",
+      "sudo passwd ${var.vmUsername} <<EOF",
+      "${var.vmPassword}",
+      "${var.vmPassword}",
       "EOF"
     ]
   }
