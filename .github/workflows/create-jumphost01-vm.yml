@@ -60,11 +60,12 @@ jobs:
             terraform/main.tf
 
       - name: Create VM from template with OpenTofu
+        id: create-vm
         working-directory: terraform
         run: |
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
-          tofu apply -auto-approve "tfplan"
+          tofu apply -auto-approve "tfplan" >> $GITHUB_OUTPUT
         env:
           TF_LOG: "ERROR"
           # vCenter
@@ -94,9 +95,11 @@ jobs:
           TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\"]"
 
       - name: Workaround for git
+        if: contains(steps.create-vm.outputs.stdout, 'No changes. Your infrastructure matches the configuration.')
         run: git config --global --add safe.directory '*'
 
       - uses: stefanzweifel/git-auto-commit-action@v5
+        if: contains(steps.create-vm.outputs.stdout, 'No changes. Your infrastructure matches the configuration.')
         with:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
