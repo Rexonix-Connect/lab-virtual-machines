@@ -3,7 +3,7 @@ variable "authorizedSshKeys" {
   type        = list(string)
   sensitive   = false
 }
-variable "vCenterDatacenter" {
+variable "vCenterDatacenterName" {
   description = "The vSphere Datacenter that the VM(s) will be deployed"
   type        = string
 }

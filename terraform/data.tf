@@ -1,5 +1,5 @@
 data "vsphere_datacenter" "dc" {
-  name = var.vCenterDatacenter
+  name = var.vCenterDatacenterName
 }
 data "vsphere_compute_cluster" "cluster" {
   count         = 1

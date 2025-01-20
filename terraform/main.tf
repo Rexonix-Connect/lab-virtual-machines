@@ -53,7 +53,7 @@ resource "vsphere_virtual_machine" "virtual_machine" {
   resource_pool_id = data.vsphere_compute_cluster.cluster[0].resource_pool_id
   num_cpus         = 2
   memory           = 4096
-  folder           = "/${var.vCenterDatacenter}/vm/${var.vmFolder}"
+  folder           = "/${var.vCenterDatacenterName}/vm/${var.vmFolder}"
   connection {
     type        = "ssh"
     host        = self.guest_ip_addresses[0]
