@@ -45,6 +45,10 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
+      - name: Sleep for 10 seconds if needed
+        if: ${{ needs.create-opentofu-providers-mirror.result == 'success' }}
+        run: sleep 10
+
       - uses: actions/checkout@v4
 
       - name: Set encryption key in main.tf
@@ -65,7 +69,9 @@ jobs:
         run: |
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
+          echo 'tfapply<<EOF' >> $GITHUB_OUTPUT
           tofu apply -auto-approve "tfplan" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
         env:
           TF_LOG: "ERROR"
           # vCenter
