@@ -101,17 +101,14 @@ jobs:
           # access
           TF_VAR_vmUsername: ${{ secrets.VM_USERNAME }}
           TF_VAR_vmPassword: ${{ secrets.VM_PASSWORD }}
-          TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\"]"
+          TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\",\"${{ secrets.RUNNER01_SSH_PUBLIC_KEY }}\"]"
 
       - name: Workaround for git
         run: git config --global --add safe.directory '*'
 
-      - name: debug tfplan
-        run: |
-          echo "TFPLAN: ${{ steps.create-vm.outputs.TFPLAN }}"
-
       - uses: stefanzweifel/git-auto-commit-action@v5
-        if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'No changes. Your infrastructure matches the configuration.') }}
+        if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'found no differences, so no changes are needed') }}
         with:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
+
