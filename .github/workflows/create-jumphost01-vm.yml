@@ -2,9 +2,16 @@ name: Create jumphost01 VM
 
 on:
   workflow_dispatch:
+    inputs:
+      createMirror:
+        description: 'Create local terraform mirror files'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   create-opentofu-providers-mirror:
+    if: github.event.inputs.createMirror == true
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
