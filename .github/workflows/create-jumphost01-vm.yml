@@ -69,9 +69,7 @@ jobs:
         run: |
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
-          echo 'tfapply<<EOF' >> $GITHUB_OUTPUT
-          tofu apply -auto-approve "tfplan" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          echo "TFAPPLY=${tofu apply -auto-approve 'tfplan'}" >> $GITHUB_OUTPUT
         env:
           TF_LOG: "ERROR"
           # vCenter
@@ -101,11 +99,11 @@ jobs:
           TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\"]"
 
       - name: Workaround for git
-        if: ${{ !contains(steps.create-vm.outputs.tfapply, 'No changes. Your infrastructure matches the configuration.') }}
+        if: ${{ !contains(steps.create-vm.outputs.TFAPPLY, 'No changes. Your infrastructure matches the configuration.') }}
         run: git config --global --add safe.directory '*'
 
       - uses: stefanzweifel/git-auto-commit-action@v5
-        if: ${{ !contains(steps.create-vm.outputs.tfapply, 'No changes. Your infrastructure matches the configuration.') }}
+        if: ${{ !contains(steps.create-vm.outputs.TFAPPLY, 'No changes. Your infrastructure matches the configuration.') }}
         with:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
