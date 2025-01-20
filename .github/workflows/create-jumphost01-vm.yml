@@ -8,6 +8,11 @@ on:
         required: true
         default: false
         type: boolean
+      skipTerraform:
+        description: 'Skip creating or updating the VM'
+        required: true
+        default: false
+        type: boolean
 
 env:
   VM_NAME: jumphost01
@@ -40,7 +45,7 @@ jobs:
           commit_message: Automatic changes | OpenTofu Providers Mirror
 
   create-vm-from-template:
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ !inputs.skipTerraform && !failure() && !cancelled() }}
     needs: [create-opentofu-providers-mirror]
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
@@ -113,8 +118,8 @@ jobs:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
 
-
   setup-vm:
+    if: ${{ !failure() && !cancelled() }}
     needs: [create-vm-from-template]
     runs-on: [self-hosted, linux, initial]
     steps:
