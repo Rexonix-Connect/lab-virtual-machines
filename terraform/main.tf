@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.3.0"
 
+  backend "local" {
+    path = "$STATEFILE_PATH"
+  }
+
   required_providers {
     vsphere = {
       source  = "hashicorp/vsphere"

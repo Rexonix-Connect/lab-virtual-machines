@@ -50,9 +50,11 @@ jobs:
       - name: Set encryption key in main.tf
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
         env:
+          STATEFILE_PATH:  "${{ env.VM_NAME }}/terraform.tfstate"
           TF_ENCRYPTION_KEY: ${{ secrets.TF_ENCRYPTION_PASSWORD }}
         with:
           variables: |
+            $STATEFILE_PATH
             $TF_ENCRYPTION_KEY
           files: |
             terraform/main.tf
@@ -62,7 +64,7 @@ jobs:
         run: |
           tofu init --plugin-dir ./mirror
           tofu plan -out "tfplan"
-          tofu apply -auto-approve -state "${{ env.VM_NAME }}/terraform.tfstate" "tfplan"
+          tofu apply -auto-approve "tfplan"
         env:
           TF_LOG: "ERROR"
           # vCenter
