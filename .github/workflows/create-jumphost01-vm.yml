@@ -12,7 +12,7 @@ on:
 env:
   VM_NAME: jumphost01
   VM_FOLDER: /INFRA
-  VM_IP_ADDRESS: ${{ secrets.VM_JUMPHOST01_IP }}
+  VM_IP_ADDRESS: ${{ vars.VM_JUMPHOST01_IP }}
 
 jobs:
   create-opentofu-providers-mirror:
