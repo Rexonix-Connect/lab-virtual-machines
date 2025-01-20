@@ -91,6 +91,9 @@ jobs:
           TF_VAR_vmPassword: ${{ secrets.VM_PASSWORD }}
           TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\"]"
 
+      - name: Workaround for git
+        run: git config --global --add safe.directory '*'
+
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
