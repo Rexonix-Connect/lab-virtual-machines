@@ -104,6 +104,7 @@ jobs:
           TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\",\"${{ secrets.RUNNER01_SSH_PUBLIC_KEY }}\"]"
 
       - name: Workaround for git
+        if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'found no differences, so no changes are needed') }}  
         run: git config --global --add safe.directory '*'
 
       - uses: stefanzweifel/git-auto-commit-action@v5
@@ -112,3 +113,16 @@ jobs:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
 
+
+  setup-vm:
+    needs: [create-vm-from-template]
+    runs-on: [self-hosted, linux, initial]
+    steps:
+      - name: Install Talosctl
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            curl -sL https://talos.dev/install | sh
