@@ -61,8 +61,7 @@ jobs:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
-      - name: Sleep for 10 seconds if needed
-        if: ${{ needs.create-opentofu-providers-mirror.result == 'success' }}
+      - name: Sleep for 10 seconds
         run: sleep 10
 
       - uses: actions/checkout@v4
