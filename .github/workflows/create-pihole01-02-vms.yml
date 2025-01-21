@@ -50,6 +50,7 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - vm_name: pihole01
