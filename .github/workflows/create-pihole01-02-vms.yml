@@ -141,13 +141,19 @@ jobs:
           - vm_name: pihole01
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
             files_path: pihole
+            pihole_peer_ip: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
+            pihole_peer_hostname: pihole02
           - vm_name: pihole02
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
             vm_files_path: pihole
+            pihole_peer_ip: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
+            pihole_peer_hostname: pihole01
     env:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
       VM_FILES_PATH: ${{ matrix.files_path }}
+      PIHOLE_PEER_IP: ${{ matrix.pihole_peer_ip }}
+      PIHOLE_PEER_HOSTNAME: ${{ matrix.pihole_peer_hostname }}
     steps:
       - uses: Anush008/clean-after-action@v4.2.0
 
@@ -199,7 +205,19 @@ jobs:
             # Make sure /etc/pihole exists
             sudo mkdir -p /etc/pihole
             # Move setupVars.conf for Pihole
-            sudo mkdir -p /etc/pihole
             sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
+            # Update /etc/pihole/custom.list
+            sudo echo "${{ vars.LAB_PIHOLE_CUSTOM_LIST }}" > /etc/pihole/custom.list
+            # Update /etc/hosts
+            sudo tee /etc/hosts >/dev/null <<-EOF
+                127.0.0.1       localhost
+                ::1             localhost ip6-localhost ip6-loopback
+                fe00::0         ip6-localnet
+                ff00::0         ip6-mcastprefix
+                ff02::1         ip6-allnodes
+                ff02::2         ip6-allrouters
+                127.0.1.1       ${{ env.VM_NAME }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ env.VM_NAME }}
+                ${{ env.PIHOLE_PEER_IP }}      ${{ env.PIHOLE_PEER_HOSTNAME }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ env.PIHOLE_PEER_HOSTNAME }}
+            EOF
             # Install Pihole
             curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
