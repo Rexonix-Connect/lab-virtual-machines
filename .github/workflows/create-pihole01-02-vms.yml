@@ -183,7 +183,8 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           source: "${{ env.VM_NAME }}/etc/pihole/setupVars.conf"
-          target: "/home/${{ secrets.VM_USERNAME }}/setupVars.conf"
+          target: "/home/${{ secrets.VM_USERNAME }}"
+          strip_components: 3
 
       - name: Install Pihole
         uses: appleboy/ssh-action@v1.2.0
