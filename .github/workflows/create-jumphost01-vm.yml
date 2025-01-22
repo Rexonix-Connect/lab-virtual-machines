@@ -25,6 +25,8 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - uses: actions/checkout@v4
 
       - name: Create providers mirror
@@ -50,6 +52,8 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
@@ -121,6 +125,8 @@ jobs:
     needs: [create-vm-from-template]
     runs-on: [self-hosted, linux, initial]
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - name: Install Talosctl
         uses: appleboy/ssh-action@v1.2.0
         with:
