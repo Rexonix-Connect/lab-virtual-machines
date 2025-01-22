@@ -199,7 +199,7 @@ jobs:
             ${{ matrix.files_path }}/etc/pihole/setupVars.conf
             ${{ matrix.files_path }}/etc/keepalived/keepalived.conf
 
-      - name: Copy setupVars.conf to VM
+      - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ matrix.vm_ip_address }}
@@ -209,7 +209,7 @@ jobs:
           target: "/home/${{ secrets.VM_USERNAME }}"
           strip_components: 3
 
-      - name: Install Pihole
+      - name: Install and Configure Pihole
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ matrix.vm_ip_address }}
@@ -229,6 +229,7 @@ jobs:
             sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
             # Update /etc/pihole/custom.list
             sed -i '/^#/d' /home/${{ secrets.VM_USERNAME }}/custom.list.tsv
+            sed -i 's/\t/ /g' /home/${{ secrets.VM_USERNAME }}/custom.list.tsv
             sudo mv /home/${{ secrets.VM_USERNAME }}/custom.list.tsv /etc/pihole/custom.list
             # Update /etc/hosts
             sudo tee /etc/hosts >/dev/null <<-EOF
