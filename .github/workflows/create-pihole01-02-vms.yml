@@ -61,12 +61,11 @@ jobs:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
-      - name: Sleep for 10 seconds
-        run: sleep 10
-
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
-      - name: Set encryption key in main.tf
+      - name: Set variables in main.tf
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
         env:
           STATEFILE_PATH:  "${{ env.VM_NAME }}/terraform.tfstate"
