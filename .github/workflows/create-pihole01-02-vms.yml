@@ -54,9 +54,9 @@ jobs:
       matrix:
         include:
           - vm_name: pihole01
-            vm_ip_address: ${{ vars.VM_PIHOLE01_IP }}
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
           - vm_name: pihole02
-            vm_ip_address: ${{ vars.VM_PIHOLE02_IP }}
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
     env:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
@@ -110,7 +110,7 @@ jobs:
           TF_VAR_vmIPAddresses: "[\"${{ env.VM_IP_ADDRESS }}\"]"
           TF_VAR_vmIPNetmask: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
           TF_VAR_vmIPGateway: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}
-          TF_VAR_dnsServerList: ${{ vars.VM_DNS_SERVER_LIST_PUBLIC }}
+          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}\"]"
           TF_VAR_vmDomain: ${{ vars.VM_DOMAIN_NAME_LAB }}
           # access
           TF_VAR_vmUsername: ${{ secrets.VM_USERNAME }}
@@ -135,9 +135,9 @@ jobs:
       matrix:
         include:
           - vm_name: pihole01
-            vm_ip_address: ${{ vars.VM_PIHOLE01_IP }}
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
           - vm_name: pihole02
-            vm_ip_address: ${{ vars.VM_PIHOLE02_IP }}
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
     env:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
