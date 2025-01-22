@@ -143,7 +143,7 @@ jobs:
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
       - name: Install Pihole
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.VM_IP_ADDRESS }}
           username: ${{ secrets.VM_USERNAME }}
