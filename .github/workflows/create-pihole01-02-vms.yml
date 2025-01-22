@@ -194,6 +194,6 @@ jobs:
           script: |
             # Move setupVars.conf for Pihole
             sudo mkdir -p /etc/pihole
-            sudo move /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
+            sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
             # Install Pihole
             curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
