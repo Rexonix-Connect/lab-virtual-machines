@@ -205,7 +205,7 @@ jobs:
           host: ${{ matrix.vm_ip_address }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
-          source: "${{ matrix.files_path }}/etc/pihole/setupVars.conf,${{ matrix.files_path }}/etc/keepalived/keepalived.conf"
+          source: "${{ matrix.files_path }}/etc/pihole/setupVars.conf,${{ matrix.files_path }}/etc/keepalived/keepalived.conf,${{ matrix.files_path }}/etc/pihole/custom.list.tsv"
           target: "/home/${{ secrets.VM_USERNAME }}"
           strip_components: 3
 
@@ -228,9 +228,8 @@ jobs:
             # Move setupVars.conf for Pihole
             sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
             # Update /etc/pihole/custom.list
-            sudo tee /etc/pihole/custom.list >/dev/null <<-EOF
-            ${{ vars.LAB_PIHOLE_CUSTOM_LIST }}
-            EOF
+            sed -i '/^#/d' /home/${{ secrets.VM_USERNAME }}/custom.list.tsv
+            sudo mv /home/${{ secrets.VM_USERNAME }}/custom.list.tsv /etc/pihole/custom.list
             # Update /etc/hosts
             sudo tee /etc/hosts >/dev/null <<-EOF
             	127.0.0.1       localhost
@@ -241,6 +240,7 @@ jobs:
             	ff02::2         ip6-allrouters
             	127.0.1.1       ${{ matrix.vm_name }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ matrix.vm_name }}
             	${{ matrix.pihole_peer_ip }}      ${{ matrix.pihole_peer_hostname }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ matrix.pihole_peer_hostname }}
+              ${{ vars.DNS_SERVER_IPV4_LAB_VIP }}      pihole.${{ vars.VM_DOMAIN_NAME_LAB }} pihole
             EOF
             # Install or Restart Pihole
             if [ ! -f /usr/local/bin/pihole ]; then

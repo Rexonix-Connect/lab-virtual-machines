@@ -1,0 +1,29 @@
+# IP	FQDN
+# WAN uplink	
+10.122.255.1	fortigate01-lan3.lab.arpa
+fddf:10:122:255::1	fortigate01-lan3.lab.arpa
+fddf:10:122:255::1	fortigate01-lan3.ipv6.lab.arpa
+10.122.255.2	cisco-core01-Fa1-0-1.lab.arpa
+fddf:10:122:255::2	cisco-core01-Fa1-0-1.lab.arpa
+fddf:10:122:255::2	cisco-core01-Fa1-0-1.ipv6.lab.arpa
+# Vlan3001	
+10.123.1.1	cisco-core01-Vlan3001.lab.arpa
+# Vlan666	
+10.123.0.1	cisco-core01-Vlan666.lab.arpa
+fddf:fddf::1	cisco-core01-Vlan666.lab.arpa
+fddf:fddf::1	cisco-core01-Vlan666.ipv6.lab.arpa
+10.123.0.10	vcenter01.lab.arpa
+10.123.0.11	storage01.lab.arpa
+10.123.0.12	storage02.lab.arpa
+10.123.0.13	esxi01.lab.arpa
+10.123.0.14	esxi02.lab.arpa
+10.123.0.15	esxi01-ilo.lab.arpa
+10.123.0.16	esxi02-ilo.lab.arpa
+10.123.0.18	jumphost01.lab.arpa
+10.123.0.19	github-runner01.lab.arpa
+10.123.0.20	dnac01.lab.arpa
+10.123.0.110	aci-apic01-cimc.lab.arpa
+10.123.0.111	aci-apic01-oob.lab.arpa
+10.123.0.112	aci-sp01-oob.lab.arpa
+10.123.0.113	aci-lf01-oob.lab.arpa
+10.123.0.114	aci-lf02-oob.lab.arpa
