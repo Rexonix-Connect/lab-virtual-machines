@@ -22,6 +22,7 @@ fddf:fddf::1	cisco-core01-Vlan666.ipv6.lab.arpa
 10.123.0.18	jumphost01.lab.arpa
 10.123.0.19	github-runner01.lab.arpa
 10.123.0.20	dnac01.lab.arpa
+10.123.0.21  cml.home.arpa
 10.123.0.110	aci-apic01-cimc.lab.arpa
 10.123.0.111	aci-apic01-oob.lab.arpa
 10.123.0.112	aci-sp01-oob.lab.arpa
