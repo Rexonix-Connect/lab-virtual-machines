@@ -254,5 +254,5 @@ jobs:
             # Reconfigure Lighttpd to redirect / to /admin
             LINE='url.redirect = ("^/$" => "/admin" )'
             FILE='/etc/lighttpd/lighttpd.conf'
-            grep -qF -- "$LINE" "$FILE" || echo "$LINE" >> "$FILE" && sudo systemctl restart lighttpd
+            grep -qF -- "$LINE" "$FILE" || (echo "$LINE" | sudo tee -a $FILE)  && sudo systemctl restart lighttpd
             sudo systemctl status lighttpd
