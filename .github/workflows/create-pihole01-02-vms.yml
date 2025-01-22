@@ -127,7 +127,7 @@ jobs:
           file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
           commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
 
-  setup-vm:
+  install-pihole:
     if: ${{ !failure() && !cancelled() }}
     needs: [create-vm-from-template]
     runs-on: [self-hosted, linux, initial]
@@ -142,6 +142,43 @@ jobs:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Pihole admin password hash
+        run: |
+          PIHOLE_PASSWORD_HASH=$(echo -n '${{ secrets.VM_PASSWORD }}' | sha256sum | awk '{printf "%s",$1 }' | sha256sum | awk '{printf "%s",$1 }')
+          echo "::add-mask::$PIHOLE_PASSWORD_HASH"
+          echo "PIHOLE_PASSWORD_HASH=$PIHOLE_PASSWORD_HASH" >> $GITHUB_ENV
+
+      - name: Set variables in setupVars.conf
+        uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
+        env:
+          PASSWORD_HASH: ${{ env.PIHOLE_PASSWORD_HASH }}
+          PIHOLE_DOMAIN_NAME: ${{ vars.VM_DOMAIN_NAME_LAB }}
+          PIHOLE_DNS_1: ${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}
+          PIHOLE_DNS_2: ${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}
+          PIHOLE_DNS_3: ${{ vars.DNS_SERVER_IPV6_PUBLIC_PRIMARY }}
+          PIHOLE_DNS_4: ${{ vars.DNS_SERVER_IPV6_PUBLIC_SECONDARY }}
+        with:
+          variables: |
+            $PASSWORD_HASH
+            $PIHOLE_DOMAIN_NAME
+            $PIHOLE_DNS_1
+            $PIHOLE_DNS_2
+            $PIHOLE_DNS_3
+            $PIHOLE_DNS_4
+          files: |
+            ${{ env.VM_NAME }}/etc/pihole/setupVars.conf
+
+      - name: Copy setupVars.conf to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          source: "${{ env.VM_NAME }}/etc/pihole/setupVars.conf"
+          target: "/home/${{ secrets.VM_USERNAME }}/setupVars.conf"
+
       - name: Install Pihole
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -149,4 +186,8 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
-            curl -sSL https://install.pi-hole.net | bash
+            # Move setupVars.conf for Pihole
+            sudo mkdir -p /etc/pihole
+            sudo move /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
+            # Install Pihole
+            curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
