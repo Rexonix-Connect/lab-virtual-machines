@@ -1,0 +1,52 @@
+name: Update Pihole custom.list
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/update-pihole-custom-list.yml
+      - pihole/etc/pihole/custom.list.tsv
+
+jobs:
+  install-pihole:
+    runs-on: [self-hosted, linux, initial]
+    strategy:
+      matrix:
+        include:
+          - vm_name: pihole01
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
+            files_path: pihole
+          - vm_name: pihole02
+            vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
+            files_path: pihole
+    steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
+      - uses: actions/checkout@v4
+
+      - name: Copy files to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ matrix.vm_ip_address }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          source: "${{ matrix.files_path }}/etc/pihole/custom.list.tsv"
+          target: "/home/${{ secrets.VM_USERNAME }}"
+          strip_components: 3
+
+      - name: Update Pihole custom.list
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ matrix.vm_ip_address }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            # Update /etc/pihole/custom.list
+            sed -i '/^#/d' /home/${{ secrets.VM_USERNAME }}/custom.list.tsv
+            sed -i 's/\t/ /g' /home/${{ secrets.VM_USERNAME }}/custom.list.tsv
+            sudo mv /home/${{ secrets.VM_USERNAME }}/custom.list.tsv /etc/pihole/custom.list
+            # Restart Pihole
+            sudo pihole restartdns
+            sudo systemctl status pihole-FTL.service
