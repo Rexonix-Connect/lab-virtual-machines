@@ -15,9 +15,9 @@ on:
         type: boolean
 
 env:
-  # VM_NAME:
+  # VM_NAME: <defined via matrix strategy for each job>
   VM_FOLDER: /INFRA
-  # VM_IP_ADDRESS:
+  # VM_IP_ADDRESS: <defined via matrix strategy for each job>
 
 jobs:
   create-opentofu-providers-mirror:
