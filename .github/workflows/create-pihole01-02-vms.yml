@@ -140,11 +140,14 @@ jobs:
         include:
           - vm_name: pihole01
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
+            files_path: pihole
           - vm_name: pihole02
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
+            vm_files_path: pihole
     env:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
+      VM_FILES_PATH: ${{ matrix.files_path }}
     steps:
       - uses: Anush008/clean-after-action@v4.2.0
 
@@ -156,7 +159,7 @@ jobs:
           echo "::add-mask::$PIHOLE_PASSWORD_HASH"
           echo "PIHOLE_PASSWORD_HASH=$PIHOLE_PASSWORD_HASH" >> $GITHUB_ENV
 
-      - name: Set variables in setupVars.conf
+      - name: Set variables in configuration files
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
         env:
           PASSWORD_HASH: ${{ env.PIHOLE_PASSWORD_HASH }}
@@ -174,7 +177,7 @@ jobs:
             $PIHOLE_DNS_3
             $PIHOLE_DNS_4
           files: |
-            ${{ env.VM_NAME }}/etc/pihole/setupVars.conf
+            ${{ env.VM_FILES_PATH }}/etc/pihole/setupVars.conf
 
       - name: Copy setupVars.conf to VM
         uses: appleboy/scp-action@v0.1.7
@@ -182,7 +185,7 @@ jobs:
           host: ${{ env.VM_IP_ADDRESS }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
-          source: "${{ env.VM_NAME }}/etc/pihole/setupVars.conf"
+          source: "${{ env.VM_FILES_PATH }}/etc/pihole/setupVars.conf"
           target: "/home/${{ secrets.VM_USERNAME }}"
           strip_components: 3
 
@@ -193,6 +196,8 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
+            # Make sure /etc/pihole exists
+            sudo mkdir -p /etc/pihole
             # Move setupVars.conf for Pihole
             sudo mkdir -p /etc/pihole
             sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
