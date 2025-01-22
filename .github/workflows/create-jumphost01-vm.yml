@@ -103,7 +103,7 @@ jobs:
           TF_VAR_vmIPAddresses: "[\"${{ env.VM_IP_ADDRESS }}\"]"
           TF_VAR_vmIPNetmask: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
           TF_VAR_vmIPGateway: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}
-          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}\"]"
+          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_LAB_VIP }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}\"]"
           TF_VAR_vmDomain: ${{ vars.VM_DOMAIN_NAME_LAB }}
           # access
           TF_VAR_vmUsername: ${{ secrets.VM_USERNAME }}
