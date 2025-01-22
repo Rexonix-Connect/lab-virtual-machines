@@ -25,6 +25,8 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - uses: actions/checkout@v4
 
       - name: Create providers mirror
@@ -61,6 +63,8 @@ jobs:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
@@ -142,6 +146,8 @@ jobs:
       VM_NAME: ${{ matrix.vm_name }}
       VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
       - uses: actions/checkout@v4
 
       - name: Create Pihole admin password hash
