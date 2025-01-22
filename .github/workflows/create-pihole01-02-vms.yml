@@ -59,9 +59,6 @@ jobs:
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
           - vm_name: pihole02
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
-    env:
-      VM_NAME: ${{ matrix.vm_name }}
-      VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
     steps:
       - uses: Anush008/clean-after-action@v4.2.0
 
@@ -72,7 +69,7 @@ jobs:
       - name: Set variables in main.tf
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
         env:
-          STATEFILE_PATH:  "${{ env.VM_NAME }}/terraform.tfstate"
+          STATEFILE_PATH:  "${{ matrix.vm_name }}/terraform.tfstate"
           TF_ENCRYPTION_KEY: ${{ secrets.TF_ENCRYPTION_PASSWORD }}
         with:
           variables: |
@@ -107,11 +104,11 @@ jobs:
           TF_VAR_templateName: ${{ vars.UBUNTU_22_04_SERVER_X64_VM_TEMPLATE_NAME }}
           TF_VAR_libraryName: ${{ vars.VCENTER_PACKER_CONTENT_LIBRARY_NAME }}
           # specific to the VM
-          TF_VAR_vmName: ${{ env.VM_NAME }}
+          TF_VAR_vmName: ${{ matrix.vm_name }}
           TF_VAR_vmFolder: ${{ env.VM_FOLDER }}
           # network
           TF_VAR_portGroup: ${{ vars.VCENTER_DEFAULT_PORT_GROUP }}
-          TF_VAR_vmIPAddresses: "[\"${{ env.VM_IP_ADDRESS }}\"]"
+          TF_VAR_vmIPAddresses: "[\"${{ matrix.vm_ip_address }}\"]"
           TF_VAR_vmIPNetmask: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
           TF_VAR_vmIPGateway: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}
           TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}\"]"
@@ -128,8 +125,8 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'found no differences, so no changes are needed') }}
         with:
-          file_pattern: 'terraform/${{ env.VM_NAME }}/terraform.tfstate'
-          commit_message: Automatic Changes | Statefile for ${{ env.VM_NAME }}
+          file_pattern: 'terraform/${{ matrix.vm_name }}/terraform.tfstate'
+          commit_message: Automatic Changes | Statefile for ${{ matrix.vm_name }}
 
   install-pihole:
     if: ${{ !failure() && !cancelled() }}
@@ -143,17 +140,15 @@ jobs:
             files_path: pihole
             pihole_peer_ip: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
             pihole_peer_hostname: pihole02
+            keepalived_state: MASTER
+            keepalived_priority: 10
           - vm_name: pihole02
             vm_ip_address: ${{ vars.DNS_SERVER_IPV4_LAB_SECONDARY }}
             files_path: pihole
             pihole_peer_ip: ${{ vars.DNS_SERVER_IPV4_LAB_PRIMARY }}
             pihole_peer_hostname: pihole01
-    env:
-      VM_NAME: ${{ matrix.vm_name }}
-      VM_IP_ADDRESS: ${{ matrix.vm_ip_address }}
-      FILES_PATH: ${{ matrix.files_path }}
-      PIHOLE_PEER_IP: ${{ matrix.pihole_peer_ip }}
-      PIHOLE_PEER_HOSTNAME: ${{ matrix.pihole_peer_hostname }}
+            keepalived_state: BACKUP
+            keepalived_priority: 9
     steps:
       - uses: Anush008/clean-after-action@v4.2.0
 
@@ -168,56 +163,96 @@ jobs:
       - name: Set variables in configuration files
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
         env:
-          PASSWORD_HASH: ${{ env.PIHOLE_PASSWORD_HASH }}
+          PIHOLE_PASSWORD_HASH: ${{ env.PIHOLE_PASSWORD_HASH }}
           PIHOLE_DOMAIN_NAME: ${{ vars.VM_DOMAIN_NAME_LAB }}
           PIHOLE_DNS_1: ${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}
           PIHOLE_DNS_2: ${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}
           PIHOLE_DNS_3: ${{ vars.DNS_SERVER_IPV6_PUBLIC_PRIMARY }}
           PIHOLE_DNS_4: ${{ vars.DNS_SERVER_IPV6_PUBLIC_SECONDARY }}
+          KEEPALIVED_STATE: ${{ matrix.keepalived_state }}
+          KEEPALIVED_INTERFACE: ens192
+          KEEPALIVED_VRID: 45
+          KEEPALIVED_PRIORITY: ${{ matrix.keepalived_priority }}
+          KEEPALIVED_LOCAL_IP: ${{ matrix.vm_ip_address }}
+          KEEPALIVED_PEER_IP: ${{ matrix.pihole_peer_ip }}
+          KEEPALIVED_PASSWORD: S3cr3tP@ssw0rd
+          KEEPALIVED_VIRTUAL_IP: ${{ vars.DNS_SERVER_IPV4_LAB_VIP }}
+          KEEPALIVED_CIDR: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
         with:
           variables: |
-            $PASSWORD_HASH
+            $PIHOLE_PASSWORD_HASH
             $PIHOLE_DOMAIN_NAME
             $PIHOLE_DNS_1
             $PIHOLE_DNS_2
             $PIHOLE_DNS_3
             $PIHOLE_DNS_4
+            $KEEPALIVED_STATE
+            $KEEPALIVED_INTERFACE
+            $KEEPALIVED_VRID
+            $KEEPALIVED_PRIORITY
+            $KEEPALIVED_LOCAL_IP
+            $KEEPALIVED_PEER_IP
+            $KEEPALIVED_PASSWORD
+            $KEEPALIVED_VIRTUAL_IP
+            $KEEPALIVED_CIDR
           files: |
-            ${{ env.FILES_PATH }}/etc/pihole/setupVars.conf
+            ${{ matrix.files_path }}/etc/pihole/setupVars.conf
+            ${{ matrix.files_path }}/etc/keepalived/keepalived.conf
 
       - name: Copy setupVars.conf to VM
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ env.VM_IP_ADDRESS }}
+          host: ${{ matrix.vm_ip_address }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
-          source: "${{ env.FILES_PATH }}/etc/pihole/setupVars.conf"
+          source: "${{ matrix.files_path }}/etc/pihole/setupVars.conf,${{ matrix.files_path }}/etc/keepalived/keepalived.conf"
           target: "/home/${{ secrets.VM_USERNAME }}"
           strip_components: 3
 
       - name: Install Pihole
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ env.VM_IP_ADDRESS }}
+          host: ${{ matrix.vm_ip_address }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
+            # Install Keepalived
+            sudo apt update && sudo apt install -y keepalived
+            sudo mv /home/${{ secrets.VM_USERNAME }}/keepalived.conf /etc/keepalived/keepalived.conf
+            sudo systemctl enable keepalived
+            sudo systemctl start keepalived
+            sudo systemctl status keepalived
+            #
             # Make sure /etc/pihole exists
             sudo mkdir -p /etc/pihole
             # Move setupVars.conf for Pihole
             sudo mv /home/${{ secrets.VM_USERNAME }}/setupVars.conf /etc/pihole/setupVars.conf
             # Update /etc/pihole/custom.list
-            sudo echo "${{ vars.LAB_PIHOLE_CUSTOM_LIST }}" > /etc/pihole/custom.list
+            sudo tee /etc/pihole/custom.list >/dev/null <<-EOF
+            ${{ vars.LAB_PIHOLE_CUSTOM_LIST }}
+            EOF
             # Update /etc/hosts
             sudo tee /etc/hosts >/dev/null <<-EOF
-                127.0.0.1       localhost
-                ::1             localhost ip6-localhost ip6-loopback
-                fe00::0         ip6-localnet
-                ff00::0         ip6-mcastprefix
-                ff02::1         ip6-allnodes
-                ff02::2         ip6-allrouters
-                127.0.1.1       ${{ env.VM_NAME }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ env.VM_NAME }}
-                ${{ env.PIHOLE_PEER_IP }}      ${{ env.PIHOLE_PEER_HOSTNAME }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ env.PIHOLE_PEER_HOSTNAME }}
+            	127.0.0.1       localhost
+            	::1             localhost ip6-localhost ip6-loopback
+            	fe00::0         ip6-localnet
+            	ff00::0         ip6-mcastprefix
+            	ff02::1         ip6-allnodes
+            	ff02::2         ip6-allrouters
+            	127.0.1.1       ${{ matrix.vm_name }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ matrix.vm_name }}
+            	${{ matrix.pihole_peer_ip }}      ${{ matrix.pihole_peer_hostname }}.${{ vars.VM_DOMAIN_NAME_LAB }} ${{ matrix.pihole_peer_hostname }}
             EOF
-            # Install Pihole
-            curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
+            # Install or Restart Pihole
+            if [ ! -f /usr/local/bin/pihole ]; then
+              echo "Pihole is not installed. Installing Pihole..."
+            	curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
+            else
+              echo "Pihole is already installed. Restarting Pihole..."
+              sudo pihole restartdns
+            fi
+            sudo systemctl status pihole-FTL.service
+            # Reconfigure Lighttpd to redirect / to /admin
+            LINE='url.redirect = ("^/$" => "/admin" )'
+            FILE='/etc/lighttpd/lighttpd.conf'
+            grep -qF -- "$LINE" "$FILE" || echo "$LINE" >> "$FILE" && sudo systemctl restart lighttpd
+            sudo systemctl status lighttpd
