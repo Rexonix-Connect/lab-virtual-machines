@@ -50,11 +50,9 @@ jobs:
     runs-on: [self-hosted, linux, initial]
     container: ghcr.io/opentofu/opentofu:1.9.0
     steps:
-      - name: Sleep for 10 seconds if needed
-        if: ${{ needs.create-opentofu-providers-mirror.result == 'success' }}
-        run: sleep 10
-
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Set encryption key in main.tf
         uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
