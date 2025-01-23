@@ -103,7 +103,7 @@ jobs:
           TF_VAR_vmIPAddresses: "[\"${{ env.VM_IP_ADDRESS }}\"]"
           TF_VAR_vmIPNetmask: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
           TF_VAR_vmIPGateway: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}
-          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_LAB_VIP }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_PRIMARY }}\",\"${{ vars.DNS_SERVER_IPV4_PUBLIC_SECONDARY }}\"]"
+          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_LAB_VIP }}\"]"
           TF_VAR_vmDomain: ${{ vars.VM_DOMAIN_NAME_LAB }}
           # access
           TF_VAR_vmUsername: ${{ secrets.VM_USERNAME }}
@@ -127,11 +127,34 @@ jobs:
     steps:
       - uses: Anush008/clean-after-action@v4.2.0
 
-      - name: Install Talosctl
+      - name: Install Tools
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.VM_IP_ADDRESS }}
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
-            curl -sL https://talos.dev/install | sh
+            # Disable Interactive mode for Service restarts
+            echo "\$nrconf{restart} = 'a';" | sudo tee /etc/needrestart/conf.d/mynrconf.conf
+            sudo apt update
+            sudo apt install -y curl \
+                                inetutils-traceroute \
+                                iftop \
+                                btop \
+                                iperf3 \
+                                net-tools \
+                                dnsutils \
+                                snmp \
+                                tcpreplay \
+                                ldap-utils \
+                                nmap
+            sudo apt install -y --allow-change-held-packages tshark
+
+      # - name: Install Talosctl
+      #   uses: appleboy/ssh-action@v1.2.0
+      #   with:
+      #     host: ${{ env.VM_IP_ADDRESS }}
+      #     username: ${{ secrets.VM_USERNAME }}
+      #     key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+      #     script: |
+      #       curl -sL https://talos.dev/install | sh

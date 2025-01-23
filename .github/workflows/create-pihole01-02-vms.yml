@@ -216,6 +216,8 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
+            # Disable Interactive mode for Service restarts
+            echo "\$nrconf{restart} = 'a';" | sudo tee /etc/needrestart/conf.d/mynrconf.conf
             # Install Keepalived
             sudo apt update && sudo apt install -y keepalived
             sudo mv /home/${{ secrets.VM_USERNAME }}/keepalived.conf /etc/keepalived/keepalived.conf
