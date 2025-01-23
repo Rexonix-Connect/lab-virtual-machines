@@ -12,23 +12,32 @@ jobs:
   setup-powershell:
     runs-on: [self-hosted, linux, initial]
     steps:
-    - run: |
-        sudo apt-get update
-        sudo apt-get install -y wget apt-transport-https software-properties-common
-        source /etc/os-release
-        wget -q https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb
-        sudo dpkg -i packages-microsoft-prod.deb
-        rm packages-microsoft-prod.deb
-        sudo apt-get update
-        sudo apt-get install -y powershell
-        pwsh
+    - run: |        
+        if ! command -v pwsh &> /dev/null
+        then
+            sudo apt-get update
+            sudo apt-get install -y wget \
+                                    apt-transport-https \
+                                    software-properties-common
+            source /etc/os-release
+            wget -q https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb
+            sudo dpkg -i packages-microsoft-prod.deb
+            rm packages-microsoft-prod.deb
+            sudo apt-get update
+            sudo apt-get install -y powershell
+        fi
+        pwsh --version
 
   setup-powercli:
     needs: setup-powershell
     runs-on: [self-hosted, linux, initial]
     steps:
     - run: |
-        Install-Module -Name VMware.PowerCLI -Force –Confirm:$false
+        # Install PowerClI Module if not already installed
+        if (-not (Get-Module -Name VMware.PowerCLI -ListAvailable)) {
+            Install-Module -Name VMware.PowerCLI -Force –Confirm:$false
+        }
+        Get-Module -Name VMware.PowerCLI -ListAvailable | Select-Object -Property Name,Version
       shell: pwsh
 
   test-vcenter-connection:
@@ -39,7 +48,7 @@ jobs:
         Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false –Confirm:$false
         Set-PowerCLIConfiguration -InvalidCertificateAction Ignore –Confirm:$false
         Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} -User ${{ secrets.VCENTER_USER }} -Password ${{ secrets.VCENTER_PASS }}
-        Get-VM
+        Get-VM | Select-Object -ExpandProperty Name
         Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} -Force –Confirm:$false
       shell: pwsh
         
