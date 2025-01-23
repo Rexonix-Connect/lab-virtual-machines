@@ -148,7 +148,8 @@ jobs:
                                 tcpreplay \
                                 ldap-utils \
                                 nmap
-            sudo apt install -y --allow-change-held-packages tshark
+            echo "wireshark-common wireshark-common/install-setuid boolean true" | sudo debconf-set-selections
+            sudo DEBIAN_FRONTEND=noninteractive apt install -y tshark
 
       # - name: Install Talosctl
       #   uses: appleboy/ssh-action@v1.2.0
