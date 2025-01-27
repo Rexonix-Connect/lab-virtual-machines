@@ -78,7 +78,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         if (-not (Get-VM -Name ${{ env.VM_NAME }} -ErrorAction SilentlyContinue)) {
-            . .\powershell\VMUtils.ps1
+            . ./powershell/utils/VMUtils.ps1
             Create-VmFromContentLibraryOvf -vmName ${{ env.VM_NAME }} `
                                            -clusterName ${{ vars.VCENTER_CLUSTER_NAME }} `
                                            -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} `
@@ -164,7 +164,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         #
-        . .\powershell\VMUtils.ps1
+        . ./powershell/utils/VMUtils.ps1
         Dismount-CDDrives -vmName ${{ env.VM_NAME }} -vcenter ${{ secrets.VCENTER_HOST }} -vcUser ${{ secrets.VCENTER_USER }} -vcPassword ${{ secrets.VCENTER_PASS }}
         Attach-ContentLibraryIso -vmName ${{ env.VM_NAME }} -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} -IsoName ${{ env.CML_ISO_1_NAME }}
         #
