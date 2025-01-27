@@ -106,12 +106,12 @@ jobs:
         if ($env:VM_CREATED -eq $true) {
             $networkAdapter1 = Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1"
             Set-NetworkAdapter -NetworkAdapter $networkAdapter1 `
-                -NetworkName ${{ vars.VCENTER_DEFAULT_PORT_GROUP }} `
+                -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
                 -StartConnected $true `
                 -Confirm:$false
 
             New-NetworkAdapter -VM ${{ env.VM_NAME }} `
-                -NetworkName ${{ vars.VCENTER_DEFAULT_PORT_GROUP }} `
+                -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
                 -StartConnected $true `
                 -Confirm:$false
 
