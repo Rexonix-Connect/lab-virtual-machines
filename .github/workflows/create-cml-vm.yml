@@ -227,7 +227,7 @@ jobs:
             "{EXPECT 'The setup will proceed with standalone.*Continue' ATTEMPTS 2}", # Single network adapter
             "{IF LAST SUCCEEDED} c{enter}",
             "{EXPECT 'Is this host a regular standalone instance.*Standalone' ATTEMPTS 2}", # Multiple network adapters
-            "{IF LAST SUCCEEDED} $( ${{ env.CML_DEPLOYMENT_MODE }} -eq 'standalone' ? 's' : 'c' ){enter}",
+            "{IF LAST SUCCEEDED} $( '${{ env.CML_DEPLOYMENT_MODE }}' -eq 'standalone' ? 's' : 'c' ){enter}",
             #
             "{EXPECT 'Enter this system's unique hostname.*cml-controller.*Continue'}",
             "{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}",
