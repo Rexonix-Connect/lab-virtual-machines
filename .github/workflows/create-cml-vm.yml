@@ -147,8 +147,9 @@ jobs:
             $spec.DefaultPortConfig.MacManagementPolicy = New-Object VMware.Vim.DVSMacManagementPolicy
             $spec.DefaultPortConfig.MacManagementPolicy.AllowPromiscuous = $true
             $spec.DefaultPortConfig.MacManagementPolicy.ForgedTransmits = $true
-            $_this = Get-View -Id (Get-VDPortgroup -Name "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}").Id
-            $_this.ReconfigureDVPortgroup_Task($spec)
+            $vdpg = Get-VDPortgroup -Name "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}"
+            $_this = Get-View -Id $vdpg.Id
+            $_this.ReconfigureDVPortgroup_Task($spec)      
         }
         Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
                             -Force `
