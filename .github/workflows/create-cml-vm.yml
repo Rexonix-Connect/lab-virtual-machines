@@ -77,7 +77,7 @@ jobs:
         Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
-        if (-not (Get-VM -Name ${{ env.VM_NAME }})) {
+        if (-not (Get-VM -Name ${{ env.VM_NAME }} -ErrorAction SilentlyContinue)) {
             . .\powershell\VMUtils.ps1
             Create-VmFromContentLibraryOvf -vmName ${{ env.VM_NAME }} `
                                            -clusterName ${{ vars.VCENTER_CLUSTER_NAME }} `
