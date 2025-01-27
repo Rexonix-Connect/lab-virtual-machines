@@ -5,7 +5,7 @@ on:
 
 env:
   VM_NAME: cml
-  VM_FOLDER: /NET
+  VM_FOLDER: NET
   VM_IP_ADDRESS: ${{ vars.VM_CML_IP }}
 
 jobs:
