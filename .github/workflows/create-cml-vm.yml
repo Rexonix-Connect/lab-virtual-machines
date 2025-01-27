@@ -112,7 +112,7 @@ jobs:
 
             New-NetworkAdapter -VM ${{ env.VM_NAME }} `
                 -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
-                -StartConnected $true `
+                -StartConnected `
                 -Confirm:$false
 
             $vm = Get-VM -Name ${{ env.VM_NAME }}
