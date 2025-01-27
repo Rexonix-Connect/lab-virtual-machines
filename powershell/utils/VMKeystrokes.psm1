@@ -342,3 +342,5 @@ Function Set-VMKeystrokes {
         $results = $vm.PutUsbScanCodes($spec)
     }
 }
+
+Export-ModuleMember -Function Set-VMKeystrokes

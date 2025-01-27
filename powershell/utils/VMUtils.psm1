@@ -8,9 +8,6 @@
         This script handles complete CML Personal deployment in a vSphere environment.
 #>
 
-. .\VMKeystrokes.ps1
-. .\VMOCRUtils.ps1
-
 Function Delete-Vm {
     Param (
         [Parameter(Mandatory=$true)][string]$vmName
@@ -227,3 +224,5 @@ Function RunCommandsAgainstVM {
         }
     }
 }
+
+Export-ModuleMember -Function Delete-Vm, Create-VmFromContentLibraryOvf, WaitFor-SSH, Attach-ContentLibraryIso, Dismount-CDDrives, RunCommandsAgainstVM

@@ -83,7 +83,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         if (-not (Get-VM -Name ${{ env.VM_NAME }} -ErrorAction SilentlyContinue)) {
-            . ./powershell/utils/VMUtils.ps1
+            Import-Module -Name ./powershell/utils/VMUtils.psm1    
             Create-VmFromContentLibraryOvf -vmName ${{ env.VM_NAME }} `
                                            -clusterName ${{ vars.VCENTER_CLUSTER_NAME }} `
                                            -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} `
@@ -183,7 +183,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         #
-        . ./powershell/utils/VMUtils.ps1
+        Import-Module -Name ./powershell/utils/VMUtils.psm1
         Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
                           -vcenter ${{ secrets.VCENTER_HOST }} `
                           -vcUser ${{ secrets.VCENTER_USER }} `
@@ -208,7 +208,9 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         #
-        . ./powershell/utils/VMUtils.ps1
+        Import-Module -Name ./powershell/utils/VMKeystrokes.psm1
+        Import-Module -Name ./powershell/utils/VMOCRUtils.psm1
+        Import-Module -Name ./powershell/utils/VMUtils.psm1
 
         $commands = @(
             "{START-VM}",
@@ -285,7 +287,7 @@ jobs:
       if: steps.create-vm.outputs.VM_CREATED == 'true'
       shell: pwsh
       run: |
-        . ./powershell/utils/VMUtils.ps1
+        Import-Module -Name ./powershell/utils/VMUtils.psm1
         WaitFor-SSH -ipv4Address ${{ env.VM_IP_ADDRESS }} -port ${{ env.CML_SSH_PORT }} -timeout 300
 
     - name: Write SSH public keys into temporary files and copy them to CML VM
@@ -318,7 +320,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         #
-        . ./powershell/utils/VMUtils.ps1
+        Import-Module -Name ./powershell/utils/VMUtils.psm1
         Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
                           -vcenter ${{ secrets.VCENTER_HOST }} `
                           -vcUser ${{ secrets.VCENTER_USER }} `
@@ -394,7 +396,7 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         #
-        . ./powershell/utils/VMUtils.ps1
+        Import-Module -Name ./powershell/utils/VMUtils.psm1
         Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
                           -vcenter ${{ secrets.VCENTER_HOST }} `
                           -vcUser ${{ secrets.VCENTER_USER }} `
@@ -409,8 +411,13 @@ jobs:
       if: steps.create-vm.outputs.VM_CREATED == 'true'
       shell: pwsh
       run: |
-        . ./powershell/utils/CMLUtils.ps1
+        Import-Module -Name ./powershell/utils/CMLUtils.psm1
         Register-CML -fqdn ${{ env.VM_IP_ADDRESS }} `
                      -cmlAdminUsername ${{ env.CML_ADMIN_USERNAME }} `
                      -cmlAdminPassword ${{ secrets.VM_PASSWORD }} `
                      -cmlLicenseKey ${{ secrets.CML_LICENSE_KEY }}
+
+    - name: Uninstall temporary Powershell modules
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: Remove-Module -Name CMLUtils, VMUtils, VMOCRUtils, VMKeystrokes

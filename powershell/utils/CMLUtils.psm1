@@ -87,3 +87,5 @@ Function Create-LabInCml {
          -H "Content-Type: application/json" `
          -d "{`"title`":`"$labName`",`"description`":`"$labDescription`",`"notes`":`"$labNotes`"}"
 }
+
+Export-ModuleMember -Function Register-CML, Deregister-CML, Create-LabInCml

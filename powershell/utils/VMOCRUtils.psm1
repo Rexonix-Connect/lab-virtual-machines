@@ -131,3 +131,5 @@ Function ExpectTextOnVMScreen {
     }
     Return $wasFound
 }
+
+Export-ModuleMember -Function Get-VMScreenshot, Get-AzureVisionOCRResponse, GetTextFromVM, SearchTextOnVMScreen, ExpectTextOnVMScreen
