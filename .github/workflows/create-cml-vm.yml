@@ -64,11 +64,16 @@ jobs:
       CML_NUM_CPUS: 32
       CML_CORES_PER_SOCKET: 8
       CML_MEMORY_GB: 128
+      CML_DEPLOYMENT_MODE: standalone
+      CML_SSH_USERNAME: sysadmin
+      CML_SSH_PORT: 1122
+      CML_ADMIN_USERNAME: admin
     steps:
     - uses: Anush008/clean-after-action@v4.2.0
     - uses: actions/checkout@v4
 
     - name: Create VM from OVA Template
+      id: create-vm
       shell: pwsh
       run: |
         $DebugPreference = "Continue"
@@ -85,9 +90,9 @@ jobs:
                                            -contentLibraryTemplateName ${{ env.CONTENT_LIBRARY_ITEM_NAME }} `
                                            -datastoreName ${{ vars.VCENTER_DATASTORE_NAME }} `
                                            -folderName ${{ env.VM_FOLDER }}
-            echo "VM_CREATED=$true" >> $env:GITHUB_ENV
+            echo "VM_CREATED=$true" >> $env:GITHUB_OUTPUT
         } else {
-            echo "VM_CREATED=$false" >> $env:GITHUB_ENV
+            echo "VM_CREATED=$false" >> $env:GITHUB_OUTPUT
         }
         Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
                             -Force `
@@ -96,6 +101,7 @@ jobs:
 
     - name: Customize VM
       shell: pwsh
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
       run: |
         $DebugPreference = "Continue"
         Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
@@ -103,60 +109,71 @@ jobs:
         Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
-        if ($env:VM_CREATED -eq $true) {
-            $networkAdapter1 = Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1"
-            Set-NetworkAdapter -NetworkAdapter $networkAdapter1 `
-                -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
-                -StartConnected $true `
-                -Confirm:$false
+        #
+        $networkAdapter1 = Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1"
+        Set-NetworkAdapter -NetworkAdapter $networkAdapter1 `
+                           -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
+                           -StartConnected $true `
+                           -Confirm:$false
 
-            New-NetworkAdapter -VM ${{ env.VM_NAME }} `
-                -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
-                -StartConnected `
-                -Confirm:$false
+        New-NetworkAdapter -VM ${{ env.VM_NAME }} `
+                           -NetworkName "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}" `
+                           -StartConnected `
+                           -Confirm:$false
 
-            $vm = Get-VM -Name ${{ env.VM_NAME }}
-            # $clusterName = $vm.VMHost.Parent.Name
-            
-            # extend Disk
-            Get-HardDisk -VM $vm | Where-Object { $_.Name -eq "Hard disk 1" } | Set-HardDisk -CapacityGB ${{ env.CML_DISK_SIZE_GB }} -Confirm:$false
+        $vm = Get-VM -Name ${{ env.VM_NAME }}
+        # $clusterName = $vm.VMHost.Parent.Name
+        
+        # extend Disk
+        Get-HardDisk -VM $vm `
+                     | Where-Object { $_.Name -eq "Hard disk 1" } `
+                     | Set-HardDisk -CapacityGB ${{ env.CML_DISK_SIZE_GB }} -Confirm:$false
 
-            # increase CPU and Memory
-            Set-VM -VM $vm -NumCpu ${{ env.CML_NUM_CPUS }} -CoresPerSocket ${{ env.CML_CORES_PER_SOCKET }} -MemoryGB ${{ env.CML_MEMORY_GB }} -Confirm:$false
+        # increase CPU and Memory
+        Set-VM -VM $vm `
+               -NumCpu ${{ env.CML_NUM_CPUS }} `
+               -CoresPerSocket ${{ env.CML_CORES_PER_SOCKET }} `
+               -MemoryGB ${{ env.CML_MEMORY_GB }} `
+               -Confirm:$false
 
-            $spec = New-Object VMware.Vim.VirtualMachineConfigSpec
-            $spec.nestedHVEnabled = $true # enable hardware virtualization
-            # set CPU and Memory shares to high
-            $spec.MemoryAllocation = New-Object VMware.Vim.ResourceAllocationInfo
-            $spec.MemoryAllocation.Shares = New-Object VMware.Vim.SharesInfo
-            $spec.MemoryAllocation.Shares.Level = 'high'
-            $spec.CpuAllocation = New-Object VMware.Vim.ResourceAllocationInfo
-            $spec.CpuAllocation.Shares = New-Object VMware.Vim.SharesInfo
-            $spec.CpuAllocation.Shares.Level = 'high'
-            # commit changes
-            $vm.ExtensionData.ReconfigVM($spec)
+        $spec = New-Object VMware.Vim.VirtualMachineConfigSpec
+        $spec.nestedHVEnabled = $true # enable hardware virtualization
+        # set CPU and Memory shares to high
+        $spec.MemoryAllocation = New-Object VMware.Vim.ResourceAllocationInfo
+        $spec.MemoryAllocation.Shares = New-Object VMware.Vim.SharesInfo
+        $spec.MemoryAllocation.Shares.Level = 'high'
+        $spec.CpuAllocation = New-Object VMware.Vim.ResourceAllocationInfo
+        $spec.CpuAllocation.Shares = New-Object VMware.Vim.SharesInfo
+        $spec.CpuAllocation.Shares.Level = 'high'
+        # commit changes
+        $vm.ExtensionData.ReconfigVM($spec)
 
-            # Configure Net.ReversePathFwdCheck in Advanced options on all cluster hosts
-            Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} | Get-AdvancedSetting -Name Net.ReversePathFwdCheck | Set-AdvancedSetting -Value 1 -Confirm:$false
-            Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} | Get-AdvancedSetting -Name Net.ReversePathFwdCheckPromisc | Set-AdvancedSetting -Value 1 -Confirm:$false
+        # Configure Net.ReversePathFwdCheck in Advanced options on all cluster hosts
+        Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} `
+                   | Get-AdvancedSetting -Name Net.ReversePathFwdCheck `
+                   | Set-AdvancedSetting -Value 1 -Confirm:$false
+        Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} `
+                   | Get-AdvancedSetting -Name Net.ReversePathFwdCheckPromisc `
+                   | Set-AdvancedSetting -Value 1 -Confirm:$false
 
-            # Set Promiscuous Mode = Accept, Forged Transmits = Accept on Portgroup
-            $spec = New-Object VMware.Vim.DVPortgroupConfigSpec
-            $spec.ConfigVersion = '1'
-            $spec.DefaultPortConfig = New-Object VMware.Vim.VMwareDVSPortSetting
-            $spec.DefaultPortConfig.MacManagementPolicy = New-Object VMware.Vim.DVSMacManagementPolicy
-            $spec.DefaultPortConfig.MacManagementPolicy.AllowPromiscuous = $true
-            $spec.DefaultPortConfig.MacManagementPolicy.ForgedTransmits = $true
-            $vdpg = Get-VDPortgroup -Name "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}"
-            $_this = Get-View -Id $vdpg.Id
-            $_this.ReconfigureDVPortgroup_Task($spec)      
-        }
+        # Set Promiscuous Mode = Accept, Forged Transmits = Accept on Portgroup
+        $spec = New-Object VMware.Vim.DVPortgroupConfigSpec
+        $spec.ConfigVersion = '1'
+        $spec.DefaultPortConfig = New-Object VMware.Vim.VMwareDVSPortSetting
+        $spec.DefaultPortConfig.MacManagementPolicy = New-Object VMware.Vim.DVSMacManagementPolicy
+        $spec.DefaultPortConfig.MacManagementPolicy.AllowPromiscuous = $true
+        $spec.DefaultPortConfig.MacManagementPolicy.ForgedTransmits = $true
+        $vdpg = Get-VDPortgroup -Name "${{ vars.VCENTER_DEFAULT_PORT_GROUP }}"
+        $_this = Get-View -Id $vdpg.Id
+        $_this.ReconfigureDVPortgroup_Task($spec)
+        #
         Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
                             -Force `
                             -Confirm:$false `
                             -ErrorAction SilentlyContinue
 
-    - name: Insert initial ISO
+    - name: Mount initial ISO
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
       shell: pwsh
       run: |
         $DebugPreference = "Continue"
@@ -167,10 +184,233 @@ jobs:
                          -Password ${{ secrets.VCENTER_PASS }}
         #
         . ./powershell/utils/VMUtils.ps1
-        Dismount-CDDrives -vmName ${{ env.VM_NAME }} -vcenter ${{ secrets.VCENTER_HOST }} -vcUser ${{ secrets.VCENTER_USER }} -vcPassword ${{ secrets.VCENTER_PASS }}
-        Attach-ContentLibraryIso -vmName ${{ env.VM_NAME }} -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} -IsoName ${{ env.CML_ISO_1_NAME }}
+        Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
+                          -vcenter ${{ secrets.VCENTER_HOST }} `
+                          -vcUser ${{ secrets.VCENTER_USER }} `
+                          -vcPassword ${{ secrets.VCENTER_PASS }}
+        Attach-ContentLibraryIso -vmName ${{ env.VM_NAME }} `
+                                 -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} `
+                                 -IsoName ${{ env.CML_ISO_1_NAME }}
         #
         Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
                             -Force `
                             -Confirm:$false `
                             -ErrorAction SilentlyContinue
+
+    - name: Run VM and Install CML from ISO
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        #
+        . ./powershell/utils/VMUtils.ps1
+
+        $commands = @(
+            "{START-VM}",
+            "{SLEEP 20}",
+            "{EXPECT 'Continue'}",
+            "{enter}"
+            "{EXPECT 'Accept EULA'}",
+            "a{enter}",
+            "{EXPECT 'Welcome.*Continue'}",
+            "c{enter}",
+            "{EXPECT 'Brief Help.*Continue'}",
+            "c{enter}",
+            #
+            "{EXPECT 'The setup will proceed with standalone.*Continue' ATTEMPTS 2}", # Single network adapter
+            "{IF LAST SUCCEEDED} c{enter}",
+            "{EXPECT 'Is this host a regular standalone instance.*Standalone' ATTEMPTS 2}", # Multiple network adapters
+            "{IF LAST SUCCEEDED} $( ${{ env.CML_DEPLOYMENT_MODE }} -eq 'standalone' ? 's' : 'c' ){enter}",
+            #
+            "{EXPECT 'Enter this system's unique hostname.*cml-controller.*Continue'}",
+            "{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}{backspace}",
+            "${{ env.VM_NAME }}{enter}",
+            #
+            "{EXPECT 'Please attach the reference platform image.*Continue' ATTEMPTS 2}",
+            "{IF LAST SUCCEEDED} {EXIT}", # missing Iso
+            #
+            "{EXPECT 'Define the username and the password.*sysadmin.*Continue'}",
+            "{down}${{ secrets.VM_PASSWORD }}{down}${{ secrets.VM_PASSWORD }}{enter}",
+            "{EXPECT 'Define the username and the password.*admi(n|r).*Continue'}",
+            "{IF LAST FAILED} {EXIT}",
+            "{down}${{ secrets.VM_PASSWORD }}{down}${{ secrets.VM_PASSWORD }}{enter}",
+            #
+            "{EXPECT 'There are multiple active ethernet network interfaces.*Continue'}",
+            "{enter}",
+            "{EXPECT 'Optionally define a static IPv4 address.*Continue'}",
+            "{down}{space}{enter}"
+            "{EXPECT 'Specify a static IPv4 address.*Continue'}",
+            "${{ env.VM_IP_ADDRESS }}{down}",
+            "${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}{down}",
+            "${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}{down}",
+            "${{ vars.DNS_SERVER_IPV4_LAB_VIP }}{down}",
+            "${{ vars.VM_DOMAIN_NAME_LAB }}{enter}",
+            #
+            "{EXPECT 'Please confirm your configuration.*Confirm'}",
+            "{enter}",
+            #
+            "{EXPECT 'Reference Platform images will.*Continue'}",
+            "{enter}",
+            "{SLEEP 600}",
+            "{EXPECT 'Ubuntu.*Access the CML UI.*Web console.*login'}",
+            #
+            "sysadmin{enter}",
+            "{EXPECT 'Password'}",
+            "${{ secrets.VM_PASSWORD }}{enter}",
+            "{EXPECT 'admin@${{ env.VM_NAME }}'}",
+            "sudo systemctl start ssh.service{enter}"
+            "{EXPECT '[sudo].*password'}",
+            "${{ secrets.VM_PASSWORD }}{enter}",
+            #
+            "{GET-TEXT}"
+        )
+
+        RunCommandsAgainstVM -vmName ${{ env.VM_NAME }} `
+                             -dcName ${{ vars.VCENTER_DATACENTER_NAME }} `
+                             -commands $commands `
+                             -subscriptionKey ${{ secrets.JT_AZURE_OCR_SUBSCRIPTION_KEY }} `
+                             -endpoint ${{ secrets.JT_AZURE_OCR_ENDPOINT }}
+        #
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+    - name: Wait for SSH to be available
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: |
+        . ./powershell/utils/VMUtils.ps1
+        WaitFor-SSH -ipv4Address ${{ env.VM_IP_ADDRESS }} -port ${{ env.CML_SSH_PORT }} -timeout 300
+
+    - name: Write SSH public keys into temporary files and copy them to CML VM
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      run: |
+        echo "${{ secrets.RUNNER01_SSH_PUBLIC_KEY }}" > ./runner01_rsa.pub
+        sshpass -p ${{ secrets.VM_PASSWORD }} \
+                ssh-copy-id -i ./runner01_rsa.pub \
+                -p ${{ env.CML_SSH_PORT }} \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${{ env.CML_SSH_USERNAME }}@${{ env.VM_IP_ADDRESS }}
+        echo "${{ secrets.JT_SSH_PUBLIC_KEY }}" > ./jt_rsa.pub
+        sshpass -p ${{ secrets.VM_PASSWORD }} \
+                ssh-copy-id -i ./jt_rsa.pub \
+                -p ${{ env.CML_SSH_PORT }} \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${{ env.CML_SSH_USERNAME }}@${{ env.VM_IP_ADDRESS }}
+
+
+    - name: Mount supplemental ISO
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        #
+        . ./powershell/utils/VMUtils.ps1
+        Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
+                          -vcenter ${{ secrets.VCENTER_HOST }} `
+                          -vcUser ${{ secrets.VCENTER_USER }} `
+                          -vcPassword ${{ secrets.VCENTER_PASS }}
+        Attach-ContentLibraryIso -vmName ${{ env.VM_NAME }} `
+                                 -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} `
+                                 -IsoName ${{ env.CML_ISO_2_NAME }}
+        #
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+    - name: Copy images from supplemental ISO
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ env.VM_IP_ADDRESS }}
+        username: ${{ env.CML_SSH_USERNAME }}
+        port: ${{ env.CML_SSH_PORT }}
+        key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+        script: |
+          printf "=============================================\nStarting script...\n"
+          # get sudo
+          echo "${{ secrets.VM_PASSWORD }}" | sudo -S uptime
+          #
+          systemctl list-units --type=service --all virl*
+          printf "=============================================\nStopping CML services..."
+          sudo systemctl stop virl2.target
+          sleep 10
+          printf "   done\n"
+          systemctl list-units --type=service --all virl*
+          #
+          cdrom_path=$(readlink -f /dev/disk/by-label/REFPLAT)
+          printf "=============================================\nMounting $cdrom_path to /tmp/refplat_iso..."
+          sudo mount $cdrom_path /tmp/refplat_iso/
+          printf "   done\n"
+          #
+          printf "=============================================\nCopying content of /tmp/refplat_iso to /var/lib/libvirt/images (this may take a while)...\n"
+          sudo rsync -avv /tmp/refplat_iso/ /var/lib/libvirt/images/
+          printf "   done\n"
+          #
+          printf "=============================================\nSetting permissions..."
+          sudo chown -R libvirt-qemu:virl2 /var/lib/libvirt/images/*
+          #
+          sudo chmod 464 /var/lib/libvirt/images/node-definitions/*
+          #
+          sudo chmod -R 464 /var/lib/libvirt/images/virl-base-images/* # all files first
+          sudo chmod 575 /var/lib/libvirt/images/virl-base-images/* # folders only
+          printf "   done\n"
+          ls -l /var/lib/libvirt/images/virl-base-images/
+          ls -l /var/lib/libvirt/images/node-definitions/
+          #
+          printf "=============================================\nUnmounting /tmp/refplat_iso..."
+          sudo umount /tmp/refplat_iso/
+          printf "   done\n"
+          #
+          printf "=============================================\nRestarting controller to reload images into CML2 controller..."
+          sudo systemctl start virl2.target
+          sleep 10
+          printf "   done\n"
+          systemctl list-units --type=service --all virl*
+          printf "=============================================\nExiting..."
+
+    - name: Dismount ISO
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        #
+        . ./powershell/utils/VMUtils.ps1
+        Dismount-CDDrives -vmName ${{ env.VM_NAME }} `
+                          -vcenter ${{ secrets.VCENTER_HOST }} `
+                          -vcUser ${{ secrets.VCENTER_USER }} `
+                          -vcPassword ${{ secrets.VCENTER_PASS }}
+        #
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+    - name: Register CML License
+      if: steps.create-vm.outputs.VM_CREATED == 'true'
+      shell: pwsh
+      run: |
+        . ./powershell/utils/CMLUtils.ps1
+        Register-CML -fqdn ${{ env.VM_IP_ADDRESS }} `
+                     -cmlAdminUsername ${{ env.CML_ADMIN_USERNAME }} `
+                     -cmlAdminPassword ${{ secrets.VM_PASSWORD }} `
+                     -cmlLicenseKey ${{ secrets.CML_LICENSE_KEY }}
