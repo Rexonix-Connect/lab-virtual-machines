@@ -104,7 +104,8 @@ jobs:
                          -User ${{ secrets.VCENTER_USER }} `
                          -Password ${{ secrets.VCENTER_PASS }}
         if ($env:VM_CREATED -eq $true) {
-            Set-NetworkAdapter -NetworkAdapter (Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1") `
+            $networkAdapter1 = Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1"
+            Set-NetworkAdapter -NetworkAdapter $networkAdapter1 `
                 -NetworkName ${{ vars.VCENTER_DEFAULT_PORT_GROUP }} `
                 -StartConnected $true `
                 -Confirm:$false
