@@ -9,10 +9,11 @@ env:
   VM_IP_ADDRESS: ${{ vars.VM_CML_IP }}
 
 jobs:
-  setup-powershell:
+  setup-prerequisites:
     runs-on: [self-hosted, linux, initial]
     steps:
-    - run: |        
+    - name: Install Powershell
+      run: |        
         if ! command -v pwsh &> /dev/null
         then
             sudo apt-get update
@@ -28,27 +29,146 @@ jobs:
         fi
         pwsh --version
 
-  setup-powercli:
-    needs: setup-powershell
-    runs-on: [self-hosted, linux, initial]
-    steps:
-    - run: |
+    - name: Install PowerCLI
+      shell: pwsh
+      run: |
         # Install PowerClI Module if not already installed
         if (-not (Get-Module -Name VMware.PowerCLI -ListAvailable)) {
             Install-Module -Name VMware.PowerCLI -Force –Confirm:$false
         }
         Get-Module -Name VMware.PowerCLI -ListAvailable | Select-Object -Property Name,Version
-      shell: pwsh
 
-  test-vcenter-connection:
-    needs: setup-powercli
-    runs-on: [self-hosted, linux, initial]
-    steps:
-    - run: |
+    - name: Test vCenter Connectivity
+      shell: pwsh
+      run: |
         Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false –Confirm:$false
         Set-PowerCLIConfiguration -InvalidCertificateAction Ignore –Confirm:$false
-        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} -User ${{ secrets.VCENTER_USER }} -Password ${{ secrets.VCENTER_PASS }}
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
         Get-VM | Select-Object -ExpandProperty Name
-        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} -Force –Confirm:$false
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+  create-cml-vm:
+    needs: setup-prerequisites
+    runs-on: [self-hosted, linux, initial]
+    env:
+      CONTENT_LIBRARY_NAME: NET
+      CONTENT_LIBRARY_ITEM_NAME: cml2_p_2.8.0-6_amd64-32
+      CML_ISO_1_NAME: refplat-20241016-fcs
+      CML_ISO_2_NAME: refplat-20241016-supplemental
+      CML_DISK_SIZE_GB: 1024
+      CML_NUM_CPUS: 32
+      CML_CORES_PER_SOCKET: 8
+      CML_MEMORY_GB: 128
+    steps:
+    - uses: Anush008/clean-after-action@v4.2.0
+    - uses: actions/checkout@v4
+
+    - name: Create VM from OVA Template
       shell: pwsh
-        
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        if (-not (Get-VM -Name ${{ env.VM_NAME }})) {
+            . .\powershell\VMUtils.ps1
+            Create-VmFromContentLibraryOvf -vmName ${{ env.VM_NAME }} `
+                                           -clusterName ${{ vars.VCENTER_CLUSTER_NAME }} `
+                                           -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} `
+                                           -contentLibraryTemplateName ${{ env.CONTENT_LIBRARY_ITEM_NAME }} `
+                                           -datastoreName ${{ vars.VCENTER_DATASTORE_NAME }} `
+                                           -folderName ${{ env.VM_FOLDER }}
+            echo "VM_CREATED=$true" >> $env:GITHUB_ENV
+        } else {
+            echo "VM_CREATED=$false" >> $env:GITHUB_ENV
+        }
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+    - name: Customize VM
+      shell: pwsh
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        if ($env:VM_CREATED -eq $true) {
+            Set-NetworkAdapter -NetworkAdapter (Get-NetworkAdapter -VM ${{ env.VM_NAME }} -Name "Network adapter 1") `
+                -NetworkName ${{ vars.VCENTER_DEFAULT_PORT_GROUP }} `
+                -StartConnected $true `
+                -Confirm:$false
+
+            New-NetworkAdapter -VM ${{ env.VM_NAME }} `
+                -NetworkName ${{ vars.VCENTER_DEFAULT_PORT_GROUP }} `
+                -StartConnected $true `
+                -Confirm:$false
+
+            $vm = Get-VM -Name ${{ env.VM_NAME }}
+            # $clusterName = $vm.VMHost.Parent.Name
+            
+            # extend Disk
+            Get-HardDisk -VM $vm | Where-Object { $_.Name -eq "Hard disk 1" } | Set-HardDisk -CapacityGB ${{ env.CML_DISK_SIZE_GB }} -Confirm:$false
+
+            # increase CPU and Memory
+            Set-VM -VM $vm -NumCpu ${{ env.CML_NUM_CPUS }} -CoresPerSocket ${{ env.CML_CORES_PER_SOCKET }} -MemoryGB ${{ env.CML_MEMORY_GB }} -Confirm:$false
+
+            $spec = New-Object VMware.Vim.VirtualMachineConfigSpec
+            $spec.nestedHVEnabled = $true # enable hardware virtualization
+            # set CPU and Memory shares to high
+            $spec.MemoryAllocation = New-Object VMware.Vim.ResourceAllocationInfo
+            $spec.MemoryAllocation.Shares = New-Object VMware.Vim.SharesInfo
+            $spec.MemoryAllocation.Shares.Level = 'high'
+            $spec.CpuAllocation = New-Object VMware.Vim.ResourceAllocationInfo
+            $spec.CpuAllocation.Shares = New-Object VMware.Vim.SharesInfo
+            $spec.CpuAllocation.Shares.Level = 'high'
+            # commit changes
+            $vm.ExtensionData.ReconfigVM($spec)
+
+            # Configure Net.ReversePathFwdCheck in Advanced options on all cluster hosts
+            Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} | Get-AdvancedSetting -Name Net.ReversePathFwdCheck | Set-AdvancedSetting -Value 1 -Confirm:$false
+            Get-VMHost -Location ${{ vars.VCENTER_CLUSTER_NAME }} | Get-AdvancedSetting -Name Net.ReversePathFwdCheckPromisc | Set-AdvancedSetting -Value 1 -Confirm:$false
+
+            # Set Promiscuous Mode = Accept, Forged Transmits = Accept on Portgroup
+            $spec = New-Object VMware.Vim.DVPortgroupConfigSpec
+            $spec.ConfigVersion = '1'
+            $spec.DefaultPortConfig = New-Object VMware.Vim.VMwareDVSPortSetting
+            $spec.DefaultPortConfig.MacManagementPolicy = New-Object VMware.Vim.DVSMacManagementPolicy
+            $spec.DefaultPortConfig.MacManagementPolicy.AllowPromiscuous = $true
+            $spec.DefaultPortConfig.MacManagementPolicy.ForgedTransmits = $true
+            $_this = Get-View -Id (Get-VDPortgroup -Name ${{ vars.VCENTER_DEFAULT_PORT_GROUP }}).Id
+            $_this.ReconfigureDVPortgroup_Task($spec)
+        }
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
+
+    - name: Insert initial ISO
+      shell: pwsh
+      run: |
+        $DebugPreference = "Continue"
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
+        Connect-VIServer –Server ${{ secrets.VCENTER_HOST }} `
+                         -User ${{ secrets.VCENTER_USER }} `
+                         -Password ${{ secrets.VCENTER_PASS }}
+        #
+        . .\powershell\VMUtils.ps1
+        Dismount-CDDrives -vmName ${{ env.VM_NAME }} -vcenter ${{ secrets.VCENTER_HOST }} -vcUser ${{ secrets.VCENTER_USER }} -vcPassword ${{ secrets.VCENTER_PASS }}
+        Attach-ContentLibraryIso -vmName ${{ env.VM_NAME }} -contentLibraryName ${{ env.CONTENT_LIBRARY_NAME }} -IsoName ${{ env.CML_ISO_1_NAME }}
+        #
+        Disconnect-VIServer -Server ${{ secrets.VCENTER_HOST }} `
+                            -Force `
+                            -Confirm:$false `
+                            -ErrorAction SilentlyContinue
