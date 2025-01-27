@@ -237,10 +237,10 @@ jobs:
             "{IF LAST SUCCEEDED} {EXIT}", # missing Iso
             #
             "{EXPECT 'Define the username and the password.*sysadmin.*Continue'}",
-            "{down}${{ secrets.VM_PASSWORD }}{down}${{ secrets.VM_PASSWORD }}{enter}",
+            "{down}${{ secrets.CML_ADMIN_PASSWORD }}{down}${{ secrets.CML_ADMIN_PASSWORD }}{enter}",
             "{EXPECT 'Define the username and the password.*admi(n|r).*Continue'}",
             "{IF LAST FAILED} {EXIT}",
-            "{down}${{ secrets.VM_PASSWORD }}{down}${{ secrets.VM_PASSWORD }}{enter}",
+            "{down}${{ secrets.CML_ADMIN_PASSWORD }}{down}${{ secrets.CML_ADMIN_PASSWORD }}{enter}",
             #
             "{EXPECT 'There are multiple active ethernet network interfaces.*Continue'}",
             "{enter}",
@@ -263,11 +263,11 @@ jobs:
             #
             "sysadmin{enter}",
             "{EXPECT 'Password'}",
-            "${{ secrets.VM_PASSWORD }}{enter}",
+            "${{ secrets.CML_ADMIN_PASSWORD }}{enter}",
             "{EXPECT 'admin@${{ env.VM_NAME }}'}",
             "sudo systemctl start ssh.service{enter}"
             "{EXPECT '[sudo].*password'}",
-            "${{ secrets.VM_PASSWORD }}{enter}",
+            "${{ secrets.CML_ADMIN_PASSWORD }}{enter}",
             #
             "{GET-TEXT}"
         )
@@ -294,14 +294,14 @@ jobs:
       if: steps.create-vm.outputs.VM_CREATED == 'true'
       run: |
         echo "${{ secrets.RUNNER01_SSH_PUBLIC_KEY }}" > ./runner01_rsa.pub
-        sshpass -p ${{ secrets.VM_PASSWORD }} \
+        sshpass -p ${{ secrets.CML_ADMIN_PASSWORD }} \
                 ssh-copy-id -i ./runner01_rsa.pub \
                 -p ${{ env.CML_SSH_PORT }} \
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
                 ${{ env.CML_SSH_USERNAME }}@${{ env.VM_IP_ADDRESS }}
         echo "${{ secrets.JT_SSH_PUBLIC_KEY }}" > ./jt_rsa.pub
-        sshpass -p ${{ secrets.VM_PASSWORD }} \
+        sshpass -p ${{ secrets.CML_ADMIN_PASSWORD }} \
                 ssh-copy-id -i ./jt_rsa.pub \
                 -p ${{ env.CML_SSH_PORT }} \
                 -o StrictHostKeyChecking=no \
@@ -345,7 +345,7 @@ jobs:
         script: |
           printf "=============================================\nStarting script...\n"
           # get sudo
-          echo "${{ secrets.VM_PASSWORD }}" | sudo -S uptime
+          echo "${{ secrets.CML_ADMIN_PASSWORD }}" | sudo -S uptime
           #
           systemctl list-units --type=service --all virl*
           printf "=============================================\nStopping CML services..."
@@ -414,7 +414,7 @@ jobs:
         Import-Module -Name ./powershell/utils/CMLUtils.psm1
         Register-CML -fqdn ${{ env.VM_IP_ADDRESS }} `
                      -cmlAdminUsername ${{ env.CML_ADMIN_USERNAME }} `
-                     -cmlAdminPassword ${{ secrets.VM_PASSWORD }} `
+                     -cmlAdminPassword ${{ secrets.CML_ADMIN_PASSWORD }} `
                      -cmlLicenseKey ${{ secrets.CML_LICENSE_KEY }}
 
     - name: Uninstall temporary Powershell modules
