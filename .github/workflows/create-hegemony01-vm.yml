@@ -1,0 +1,210 @@
+name: Day0 | Create hegemony01 VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      createMirror:
+        description: 'Create local terraform mirror files'
+        required: true
+        default: false
+        type: boolean
+      skipTerraform:
+        description: 'Skip creating or updating the VM'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  VM_NAME: hegemony01
+  VM_FOLDER: ${{ vars.VCENTER_VM_INFRA_FOLDER }}
+  VM_IP_ADDRESS: ${{ vars.VM_HEGEMONY01_IP }}
+
+jobs:
+  create-opentofu-providers-mirror:
+    if: ${{ inputs.createMirror }}
+    runs-on: [self-hosted, linux, initial, rexonix-infra]
+    container: ghcr.io/opentofu/opentofu:1.9.0
+    steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
+      - uses: actions/checkout@v4
+
+      - name: Create providers mirror
+        run: |
+          echo "[started] Creating mirror"
+          cd terraform
+          rm -rf ./mirror
+          mkdir -p ./mirror
+          tofu providers mirror ./mirror || tofu providers mirror ./mirror
+          echo "[done] Creating mirror"
+    
+      - name: Workaround for git
+        run: git config --global --add safe.directory '*'
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          file_pattern: 'terraform/mirror/*'
+          commit_message: Automatic changes | OpenTofu Providers Mirror
+
+  create-vm-from-template:
+    if: ${{ !inputs.skipTerraform && !failure() && !cancelled() }}
+    needs: [create-opentofu-providers-mirror]
+    runs-on: [self-hosted, linux, initial, rexonix-infra]
+    container: ghcr.io/opentofu/opentofu:1.9.0
+    steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set encryption key in main.tf
+        uses: tvarohohlavy/inplace-envsubst-action@v1.0.0
+        env:
+          STATEFILE_PATH:  "${{ env.VM_NAME }}-terraform.tfstate"
+          TF_ENCRYPTION_KEY: ${{ secrets.TF_ENCRYPTION_PASSWORD }}
+        with:
+          variables: |
+            $STATEFILE_PATH
+            $TF_ENCRYPTION_KEY
+          files: |
+            terraform/main.tf
+
+      - name: Save statefile from secret to file
+        env:
+          STATEFILE: ${{ secrets[format('{0}_TF_STATEFILE', env.VM_NAME)] }}
+        if: env.STATEFILE && env.STATEFILE != 'empty'
+        run: echo '${{ env.STATEFILE }}' > terraform/${{ env.VM_NAME }}-terraform.tfstate
+
+      - name: Create VM from template with OpenTofu
+        id: create-vm
+        working-directory: terraform
+        run: |
+          # init, plan, apply
+          tofu init --plugin-dir ./mirror
+          tofu plan -out "tfplan" | tee tfplan.log
+          tofu apply -auto-approve "tfplan"
+          # save tfplan to output for later use
+          echo "TFPLAN<<EOF" >> $GITHUB_OUTPUT
+          echo "$(cat tfplan.log)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          TF_LOG: "ERROR"
+          # vCenter
+          TF_VAR_vCenterServer: ${{ secrets.VCENTER_HOST }}
+          TF_VAR_vCenterUsername: ${{ secrets.VCENTER_USER }}
+          TF_VAR_vCenterPassword: ${{ secrets.VCENTER_PASS }}
+          TF_VAR_vCenterInsecureConnection: ${{ secrets.VCENTER_INSECURE_CONNECTION }}
+          TF_VAR_vCenterDatacenterName: ${{ vars.VCENTER_DATACENTER_NAME }}
+          TF_VAR_clusterName: ${{ vars.VCENTER_CLUSTER_NAME }}
+          TF_VAR_datastoreName: ${{ vars.VCENTER_DATASTORE_NAME }}
+          # ubuntu 22.04 server x64
+          TF_VAR_templateName: ${{ vars.UBUNTU_22_04_SERVER_X64_VM_TEMPLATE_NAME }}
+          TF_VAR_libraryName: ${{ vars.VCENTER_PACKER_CONTENT_LIBRARY_NAME }}
+          # specific to the VM
+          TF_VAR_vmName: ${{ env.VM_NAME }}
+          TF_VAR_vmFolder: ${{ env.VM_FOLDER }}
+          # storage
+          TF_VAR_vmDiskSizeGB: "100"
+          # network
+          TF_VAR_portGroup: ${{ vars.VCENTER_DEFAULT_PORT_GROUP }}
+          TF_VAR_vmIPAddresses: "[\"${{ env.VM_IP_ADDRESS }}\"]"
+          TF_VAR_vmIPNetmask: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_NETMASK }}
+          TF_VAR_vmIPGateway: ${{ vars.VCENTER_DEFAULT_PORT_GROUP_GATEWAY }}
+          TF_VAR_dnsServerList: "[\"${{ vars.DNS_SERVER_IPV4_LAB_VIP }}\"]"
+          TF_VAR_vmDomain: ${{ vars.VM_DOMAIN_NAME_LAB }}
+          # access
+          TF_VAR_vmUsername: ${{ secrets.VM_USERNAME }}
+          TF_VAR_vmPassword: ${{ secrets.VM_PASSWORD }}
+          TF_VAR_authorizedSshKeys: "[\"${{ secrets.JT_SSH_PUBLIC_KEY }}\",\"${{ secrets.RUNNER01_SSH_PUBLIC_KEY }}\"]"
+
+      - name: Read statefile
+        id: read-statefile
+        run: |
+          statefile=$(cat terraform/${{ env.VM_NAME }}-terraform.tfstate)
+          echo "::add-mask::$statefile"
+          echo "statefile=$statefile" >> $GITHUB_OUTPUT
+  
+      - name: Save statefile into secret if changed
+        if: ${{ ! contains(steps.create-vm.outputs.TFPLAN, 'found no differences, so no changes are needed') }}  
+        uses: action-pack/set-secret@v1
+        with:
+          name: '${{ env.VM_NAME }}_TF_STATEFILE'
+          value: ${{ steps.read-statefile.outputs.statefile }}
+          token: ${{ secrets.REPO_SECRETS_PAT }}
+
+  setup-vm:
+    if: ${{ !failure() && !cancelled() }}
+    needs: [create-vm-from-template]
+    runs-on: [self-hosted, linux, initial, rexonix-infra]
+    steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
+      - name: Install Tools
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            # Disable Interactive mode for Service restarts if not yet done
+            if ! grep -q "nrconf{restart} = 'a'" /etc/needrestart/conf.d/mynrconf.conf; then
+              echo "\$nrconf{restart} = 'a';" | sudo tee /etc/needrestart/conf.d/mynrconf.conf
+            fi
+            # Install Tools
+            sudo apt update
+            sudo apt install -y curl \
+                                inetutils-traceroute \
+                                iftop \
+                                btop \
+                                ncdu
+      
+      - name: Install Python3.12
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            if ! python3.12 --version &>/dev/null; then
+              sudo apt install software-properties-common -y
+              sudo add-apt-repository -y ppa:deadsnakes/ppa
+              sudo apt update
+              sudo apt install -y python3.12 python3.12-venv python3.12-dev python3-pip
+              sudo apt install -y build-essential libxml2-dev libxslt1-dev libffi-dev libpq-dev libssl-dev zlib1g-dev
+            fi
+            python3.12 --version
+
+  setup-docker:
+    if: ${{ !failure() && !cancelled() }}
+    needs: [setup-vm]
+    runs-on: [self-hosted, linux, initial, rexonix-infra]
+    steps:
+      - uses: Anush008/clean-after-action@v4.2.0
+
+      - name: Setup Docker
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            if ! command -v docker &> /dev/null; then
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              rm get-docker.sh
+            fi
+            docker --version
+      
+      - name: Add user to docker group
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VM_IP_ADDRESS }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
+          script: |
+            if ! groups $USER | grep -q "\bdocker\b"; then
+              sudo usermod -aG docker $USER
+            fi
+            groups $USER
+      
