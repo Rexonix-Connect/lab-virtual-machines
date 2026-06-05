@@ -1,4 +1,4 @@
-name: Day0 | Create hegemony01 VM
+name: Day0 | Create hegemony02 VM
 
 on:
   workflow_dispatch:
@@ -15,9 +15,9 @@ on:
         type: boolean
 
 env:
-  VM_NAME: hegemony01
+  VM_NAME: hegemony02
   VM_FOLDER: ${{ vars.VCENTER_VM_INFRA_FOLDER }}
-  VM_IP_ADDRESS: ${{ vars.VM_HEGEMONY01_IP }}
+  VM_IP_ADDRESS: ${{ vars.VM_HEGEMONY02_IP }}
 
 jobs:
   create-opentofu-providers-mirror:
