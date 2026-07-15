@@ -361,7 +361,7 @@ jobs:
           key: ${{ secrets.RUNNER01_SSH_PRIVATE_KEY }}
           script: |
             if ! systemctl is-active --quiet nginx; then
-              sudo apt install -y nginx=1.18.0-6ubuntu14.6
+              sudo apt install -y nginx=1.18.0-6ubuntu14.16
             fi
             if [ ! -f "/etc/ssl/certs/netbox.crt" ]; then
               sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
