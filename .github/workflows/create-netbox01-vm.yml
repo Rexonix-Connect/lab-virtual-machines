@@ -224,7 +224,7 @@ jobs:
           script: |
             if ! systemctl is-active --quiet redis; then
               sudo apt update
-              sudo apt install -y redis-server=5:6.0.16-1ubuntu1
+              sudo apt install -y redis-server=5:6.0.16-1ubuntu1.1
             fi
             redis-server -v
             redis-cli ping
