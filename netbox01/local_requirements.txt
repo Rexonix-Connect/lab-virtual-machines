@@ -1,3 +1,4 @@
-netbox-inventory==2.3.1
-netbox-attachments==7.2.0
-netbox-secrets==2.2.1
+netbox-inventory==2.6.1
+netbox-attachments==11.2.3
+netbox-secrets==3.1.0
+netbox-custom-objects==0.6.0

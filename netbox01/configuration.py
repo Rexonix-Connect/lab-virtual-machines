@@ -182,6 +182,7 @@ PLUGINS = [
     'netbox_inventory',
     'netbox_attachments',
     'netbox_secrets',
+    'netbox_custom_objects'
 ]
 
 PLUGINS_CONFIG = {
